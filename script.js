@@ -19,6 +19,11 @@ document.addEventListener("DOMContentLoaded", () => {
       createElement("button", "button upSide", i, "▲"),
       createElement("button", "button downSide", i, "▼")
     );
+    if (i === 0) {
+      floor.querySelector(".downSide").remove();
+    } else if (i === numFloors - 1) {
+      floor.querySelector(".upSide").remove();
+    }
     floorsContainer.appendChild(floor);
   }
 });
