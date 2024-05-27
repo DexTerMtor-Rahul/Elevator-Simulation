@@ -35,7 +35,7 @@ class Elevator:
                     next_request = min(next_requests, key=lambda r: r[0])
                     while self.location < next_request[0]:
                         self.location += 1
-                    #     time.sleep(1)
+                        time.sleep(1)
                     self.requests.remove(next_request)
 
                     if next_request[2] is not None:
@@ -50,7 +50,7 @@ class Elevator:
                     next_request = max(next_requests, key=lambda r: r[0])
                     while self.location > next_request[0]:
                         self.location -= 1
-                    #     time.sleep(1)
+                        time.sleep(1)
                     self.requests.remove(next_request)
 
                     if next_request[2] is not None:
@@ -101,12 +101,13 @@ def select_elevator(call_location, call_direction, elevators, num_floors):
 
 elevators = [
     Elevator(name="A", location=0, direction='up', status='idle'),
-    Elevator(name="B", location=5, direction='down', status='idle'),
+    Elevator(name="B", location=0, direction='up', status='idle'),
 ]
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
 
 @app.route('/request_elevator', methods=['POST'])
 def request_elevator():
@@ -122,9 +123,9 @@ def request_elevator():
     
     response = {
         'elevator': selected_elevator.name,
-        'location': selected_elevator.location,
-        'status': selected_elevator.status,
-        'direction': selected_elevator.direction
+        'current_location': selected_elevator.location,
+        'current_status': selected_elevator.status,
+        'current_direction': selected_elevator.direction
     }
     
     return jsonify(response)
