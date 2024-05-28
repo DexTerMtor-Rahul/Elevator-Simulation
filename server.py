@@ -1,8 +1,18 @@
 from flask import Flask, request, jsonify, render_template
+import threading
 import time
+import logging
+from queue import Queue
 
 app = Flask(__name__)
 
+# Configure logging
+logging.basicConfig(level=logging.DEBUG)
+
+# Global list to store elevator instances and request queue
+elevators = []
+request_queue = Queue()
+response_queue = Queue()
 
 class Elevator:
     def __init__(self, name, location, direction='idle', status='idle'):
@@ -99,36 +109,55 @@ def select_elevator(call_location, call_direction, elevators, num_floors):
 
     return selected_car
 
-elevators = [
-    Elevator(name="A", location=0, direction='up', status='idle'),
-    Elevator(name="B", location=0, direction='up', status='idle'),
-]
+def process_requests(num_floors):
+    while True:
+        if not request_queue.empty():
+            call_location, call_direction, call_destination = request_queue.get()
+            selected_elevator = select_elevator(call_location, call_direction, elevators, num_floors)
+            selected_elevator.add_request(call_location, call_direction, call_destination)
+            selected_elevator.move(num_floors)
+            response = {
+                'elevator': selected_elevator.name,
+                'call_location': call_location,
+                'current_location': selected_elevator.location,
+                'current_status': selected_elevator.status,
+                'current_direction': selected_elevator.direction
+            }
+            response_queue.put(response)
+            request_queue.task_done()
+        time.sleep(1)
 
 @app.route('/')
 def index():
     return render_template('index.html')
 
+@app.route('/initialize_elevators', methods=['POST'])
+def initialize_elevators():
+    global elevators
+    data = request.get_json()
+    num_elevators = data['num_elevators']
+    num_floors = data['num_floors']
+    elevators = [Elevator(name=chr(65+i), location=0) for i in range(num_elevators)]
+
+    threading.Thread(target=process_requests, args=(num_floors,), daemon=True).start()
+
+    return jsonify({"status": "elevators initialized", "num_elevators": num_elevators})
 
 @app.route('/request_elevator', methods=['POST'])
 def request_elevator():
-    data = request.get_json()
-    call_location = data['call_location']
-    call_direction = data['call_direction']
-    call_destination = data['call_destination']
-    num_floors = 10
-
-    selected_elevator = select_elevator(call_location, call_direction, elevators, num_floors)
-    selected_elevator.add_request(call_location, call_direction, call_destination)
-    selected_elevator.move(num_floors)
-    
-    response = {
-        'elevator': selected_elevator.name,
-        'current_location': selected_elevator.location,
-        'current_status': selected_elevator.status,
-        'current_direction': selected_elevator.direction
-    }
-    
-    return jsonify(response)
+    try:
+        data = request.get_json()
+        call_location = data['call_location']
+        call_direction = data['call_direction']
+        call_destination = data['call_destination']
+        
+        request_queue.put((call_location, call_direction, call_destination))
+        response = response_queue.get()
+        response_queue.task_done()
+        return jsonify(response)
+    except Exception as e:
+        logging.error(f"Error processing elevator request: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
