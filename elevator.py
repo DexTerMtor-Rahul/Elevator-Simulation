@@ -14,14 +14,13 @@ class Elevator:
         self.call_requests.append((call_location, destination))
         self.status = "moving"
 
-    def process_requests(self):
+    def move(self):
         if not self.call_requests:
             self.status = "idle"
             return
 
         self.status = "moving"
         call_locations = [req[0] for req in self.call_requests]
-        destinations = [req[1] for req in self.call_requests]
 
         left = []
         right = []
@@ -120,10 +119,9 @@ def select_elevator(call_location, call_direction, elevators, num_floors):
 
 
 # Example usage
-elevator1 = Elevator(name="Elevator A", location=1)
-elevator2 = Elevator(name="Elevator B", location=5)
-elevator3 = Elevator(name="Elevator C", location=10)
-elevators = [elevator1, elevator2, elevator3]
+elevator1 = Elevator(name="Elevator A", location=0)
+elevator2 = Elevator(name="Elevator B", location=0)
+elevators = [elevator1, elevator2]
 
 # Adding requests (call location, destination)
 requests = [(5, 0), (5, 10), (5, 8)]
@@ -144,7 +142,7 @@ print("\nProcessing requests...\n")
 
 threads = []
 for elevator in elevators:
-    thread = threading.Thread(target=elevator.process_requests)
+    thread = threading.Thread(target=elevator.move)
     threads.append(thread)
     thread.start()
 
