@@ -74,6 +74,19 @@ document.addEventListener("DOMContentLoaded", () => {
       const floor = button.dataset.floor;
       const direction = button.classList.contains("upSide") ? "up" : "down";
       const destination = prompt("Enter your destination floor:");
+      // Validate destination floor
+      if (
+        !destination ||
+        (direction == "up" && destination <= floor) ||
+        (direction == "down" && destination >= floor)
+      ) {
+        console.log(
+          "Invalid destination floor. Please enter a valid floor number."
+        );
+        alert("Invalid destination floor. Please enter a valid floor number.");
+        stopBlinking(colorChanger, button);
+        return;
+      }
       if (destination !== null) {
         const response = {
           floor: floor,
@@ -81,25 +94,6 @@ document.addEventListener("DOMContentLoaded", () => {
           destination: destination,
         };
         console.log("Requesting elevator:", response);
-
-        // Validate destination floor
-        if (
-          isNaN(destination) ||
-          destination < 0 ||
-          destination >= numFloors ||
-          (direction == "up" && destination <= floor) ||
-          (direction == "down" && destination >= floor)
-        ) {
-          console.log(
-            "Invalid destination floor. Please enter a valid floor number."
-          );
-          alert(
-            "Invalid destination floor. Please enter a valid floor number."
-          );
-          stopBlinking(colorChanger, button);
-          return;
-        }
-
         requestElevator(floor, direction, destination, button, colorChanger);
       }
     });

@@ -1,102 +1,93 @@
 import time
+import threading
 
 
 class Elevator:
-    def __init__(self, name, location, direction="idle", status="idle"):
+    def __init__(self, name, location, direction="up", status="idle"):
         self.name = name
-        self.location = location  # Floor location of the elevator
-        self.direction = direction  # 'up', 'down', or 'idle'
-        self.status = status  # 'moving' or 'idle'
-        self.requests = []  # List of floor requests
+        self.location = location
+        self.direction = direction
+        self.status = status
+        self.call_requests = []
 
-    def add_request(self, call_location, call_direction, call_destination=None):
-        if call_destination is not None:
-            self.requests.append((call_location, call_direction, call_destination))
-        else:
-            # Add destination request without a call direction
-            self.requests.append((call_location, "", None))
-        self.requests.sort()  # Keep requests sorted
+    def add_request(self, call_location, destination):
+        self.call_requests.append((call_location, destination))
+        self.status = "moving"
 
-    def move(self, num_floors):
-        while self.requests:
-            if self.direction == "idle":
-                # Start moving towards the first request
-                next_request = self.requests[0]
-                if next_request[0] > self.location:
-                    self.direction = "up"
-                else:
-                    self.direction = "down"
-                self.status = "moving"
-                print(f"Elevator {self.name} starts moving {self.direction}")
+    def process_requests(self):
+        if not self.call_requests:
+            self.status = "idle"
+            return
 
+        self.status = "moving"
+        call_locations = [req[0] for req in self.call_requests]
+        destinations = [req[1] for req in self.call_requests]
+
+        left = []
+        right = []
+
+        for loc in call_locations:
+            if loc < self.location:
+                left.append(loc)
+            else:
+                right.append(loc)
+
+        left.sort()
+        right.sort()
+
+        run = 2
+        while run:
             if self.direction == "up":
-                # Move up to the next request
-                next_requests = [r for r in self.requests if r[0] >= self.location]
-                if next_requests:
-                    next_request = min(next_requests, key=lambda r: r[0])
-                    while self.location < next_request[0]:
+                for loc in right:
+                    while self.location < loc:
                         self.location += 1
-                        print(f"Elevator {self.name} moving up to {self.location}")
-                        time.sleep(1)  # Simulate time taken to move one floor
-                    self.requests.remove(next_request)
-                    print(
-                        f"Elevator {self.name} reached floor {self.location} next request {next_request}"
-                    )
-
-                    # Handle destination floor
-                    if next_request[2] is not None:
                         print(
-                            f"Elevator {self.name} picked up request to floor {next_request[2]}"
+                            f"Elevator {self.name} moving up, now at floor {self.location}"
                         )
-                        self.add_request(
-                            next_request[2],
-                            "up" if next_request[2] > self.location else "down",
-                        )
-
-                # If no more requests in the current direction, change direction
-                if not [r for r in self.requests if r[0] >= self.location]:
-                    self.direction = "down" if self.requests else "idle"
-
-            elif self.direction == "down":
-                # Move down to the next request
-                next_requests = [r for r in self.requests if r[0] <= self.location]
-                if next_requests:
-                    next_request = max(next_requests, key=lambda r: r[0])
-                    while self.location > next_request[0]:
-                        self.location -= 1
-                        print(f"Elevator {self.name} moving down to {self.location}")
-                        time.sleep(1)  # Simulate time taken to move one floor
-                    self.requests.remove(next_request)
-                    print(
-                        f"Elevator {self.name} reached floor {self.location} next request {next_request}"
-                    )
-
-                    # Handle destination floor
-                    if next_request[2] is not None:
-                        print(
-                            f"Elevator {self.name} picked up request to floor {next_request[2]}"
-                        )
-                        self.add_request(
-                            next_request[2],
-                            "up" if next_request[2] > self.location else "down",
-                        )
-
-                # If no more requests in the current direction, change direction
-                if not [r for r in self.requests if r[0] <= self.location]:
-                    self.direction = "up" if self.requests else "idle"
-
-            if self.location == 0:
-                self.direction = "up"
-            elif self.location == num_floors - 1:
+                        time.sleep(1)
+                    self.handle_request(loc)
                 self.direction = "down"
+            elif self.direction == "down":
+                for loc in reversed(left):
+                    while self.location > loc:
+                        self.location -= 1
+                        print(
+                            f"Elevator {self.name} moving down, now at floor {self.location}"
+                        )
+                        time.sleep(1)
+                    self.handle_request(loc)
+                self.direction = "up"
+            run -= 1
 
         self.status = "idle"
-        self.direction = "idle"
         print(f"Elevator {self.name} is now idle at floor {self.location}")
+
+    def handle_request(self, call_location):
+        for req in self.call_requests:
+            if req[0] == call_location:
+                print(
+                    f"Elevator {self.name} reached call location at floor {call_location}"
+                )
+                time.sleep(1)
+                while self.location < req[1]:
+                    self.location += 1
+                    print(
+                        f"Elevator {self.name} moving up to destination, now at floor {self.location}"
+                    )
+                    time.sleep(1)
+                while self.location > req[1]:
+                    self.location -= 1
+                    print(
+                        f"Elevator {self.name} moving down to destination, now at floor {self.location}"
+                    )
+                    time.sleep(1)
+                print(f"Elevator {self.name} reached destination at floor {req[1]}")
+                self.call_requests.remove(req)
+                break
 
 
 def select_elevator(call_location, call_direction, elevators, num_floors):
-    FS = 1
+    FS = -1  # Use a very low initial FS to ensure any valid elevator will be selected
     selected_car = elevators[0]
 
     for car in elevators:
@@ -128,29 +119,40 @@ def select_elevator(call_location, call_direction, elevators, num_floors):
     return selected_car
 
 
-def simulate_elevator_system(elevators, calls, num_floors):
-    for call_location, call_direction, call_destination in calls:
-        selected_elevator = select_elevator(
-            call_location, call_direction, elevators, num_floors
-        )
-        selected_elevator.add_request(call_location, call_direction, call_destination)
-
-    for elevator in elevators:
-        if len(elevator.requests) > 0:
-            print(
-                f"Elevator {elevator.name} is moving with requests {elevator.requests}"
-            )
-            elevator.move(num_floors)
-
-
 # Example usage
-elevators = [
-    Elevator(name="A", location=0, direction="up", status="idle"),
-    Elevator(name="B", location=0, direction="up", status="idle"),
-]
+elevator1 = Elevator(name="Elevator A", location=1)
+elevator2 = Elevator(name="Elevator B", location=5)
+elevator3 = Elevator(name="Elevator C", location=10)
+elevators = [elevator1, elevator2, elevator3]
 
-calls = [(0, "up", 5), (5, "down", 0), (5, "up", 9), (4, "down", 0)]
+# Adding requests (call location, destination)
+requests = [(5, 0), (5, 10), (5, 8)]
 
 num_floors = 10
 
-simulate_elevator_system(elevators, calls, num_floors)
+for call_location, destination in requests:
+    call_direction = "up" if call_location < destination else "down"
+    selected_elevator = select_elevator(
+        call_location, call_direction, elevators, num_floors
+    )
+    print(
+        f"Request from floor {call_location} to floor {destination}: selected {selected_elevator.name}"
+    )
+    selected_elevator.add_request(call_location, destination)
+
+print("\nProcessing requests...\n")
+
+threads = []
+for elevator in elevators:
+    thread = threading.Thread(target=elevator.process_requests)
+    threads.append(thread)
+    thread.start()
+
+for thread in threads:
+    thread.join()
+
+print("\nFinal state of all elevators:")
+for elevator in elevators:
+    print(
+        f"Elevator {elevator.name} is at floor {elevator.location}, direction: {elevator.direction}, status: {elevator.status}"
+    )

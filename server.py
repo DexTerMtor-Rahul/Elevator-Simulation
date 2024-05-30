@@ -11,6 +11,8 @@ logging.basicConfig(level=logging.DEBUG)
 
 # Global list to store elevator instances and request queue
 elevators = []
+
+# we can also use min heap to store the requests
 request_queue = Queue()
 response_queue = Queue()
 
