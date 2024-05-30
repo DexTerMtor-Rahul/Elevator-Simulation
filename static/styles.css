@@ -104,8 +104,23 @@ body {
   border-style: none solid solid solid;
   border-width: 1px;
   border-color: #ccc;
+  opacity: 0.2;
 }
-.elevator_car:hover {
-  background-color: rgb(163, 167, 171);
+
+.elevator_car.idle {
+  background-color: green;
+  opacity: 1;
+  color: white;
+}
+
+.elevator_car.moving {
+  background-color: red;
+  opacity: 1;
+  color: white;
+}
+
+.elevator_car.stopped {
+  background-color: blue;
+  opacity: 1;
   color: white;
 }
