@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
       .then((response) => response.json())
       .then((data) => {
-        stopBlinking(colorChanger, button);
+        // stopBlinking(colorChanger, button);
         console.log("Elevator selected:", data);
         if (data.error) {
           alert(`Error: ${data.error}`);
@@ -128,7 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
             `Elevator ${data.elevator_name} has reached floor ${data.current_location}`
           );
 
-          animateElevator(data);
+          animateElevator(data, button, colorChanger);
         }
       })
       .catch((error) => console.error("Error:", error));
@@ -186,7 +186,7 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function animateElevator(data) {
+async function animateElevator(data, button, colorChanger) {
   const elevator = document.querySelector(
     `.elevator[data-floor="${data.elevator_name}"]`
   );
@@ -241,6 +241,8 @@ async function animateElevator(data) {
       }
     }
   }
+
+  stopBlinking(colorChanger, button);
 
   // Move to the Destination
   if (data.call_location < data.current_location) {
