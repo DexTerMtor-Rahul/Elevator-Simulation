@@ -1,6 +1,9 @@
 const numFloors = 10;
 const numElevators = 2;
 var elevatorStatus = {};
+var requests = [];
+var requestTimeout;
+var active_button = {};
 
 document.addEventListener("DOMContentLoaded", () => {
   const elevatorContainer = document.getElementById("elevators");
@@ -14,7 +17,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return element;
   }
 
-  // Initialize elevatorss
+  // Initialize elevators
   fetch("/initialize_elevators", {
     method: "POST",
     headers: {
@@ -35,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
     })
     .catch((error) => console.error("Error:", error));
 
-  // Creating elevators blocks
+  // Creating elevators
   for (let i = numElevators - 1; i >= 0; i--) {
     const elevator = createElement(
       "div",
@@ -66,8 +69,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Add event listener to each button
   document.querySelectorAll(".button").forEach((button) => {
-    button.addEventListener("click", () => {
-      const colorChanger = setInterval(() => {
+    button.addEventListener("click", async () => {
+      var colorChanger = setInterval(() => {
         startBlinking(button);
         changeLableColor(button);
       }, 1000);
@@ -77,8 +80,10 @@ document.addEventListener("DOMContentLoaded", () => {
       // Validate destination floor
       if (
         !destination ||
-        (direction == "up" && destination <= floor) ||
-        (direction == "down" && destination >= floor)
+        destination < 0 ||
+        destination >= numFloors
+        // (direction == "up" && destination <= floor) ||
+        // (direction == "down" && destination >= floor)
       ) {
         console.log(
           "Invalid destination floor. Please enter a valid floor number."
@@ -88,54 +93,183 @@ document.addEventListener("DOMContentLoaded", () => {
         return;
       }
       if (destination !== null) {
-        const response = {
-          floor: floor,
-          direction: direction,
-          destination: destination,
-        };
-        console.log("Requesting elevator:", response);
-        requestElevator(floor, direction, destination, button, colorChanger);
+        requests.push({
+          call_location: parseInt(floor),
+          call_direction: direction,
+          call_destination: parseInt(destination),
+        });
+
+        active_button[parseInt(floor)] = [colorChanger, button];
+
+        // stopBlinking(colorChanger, button);
+
+        if (requestTimeout) {
+          clearTimeout(requestTimeout);
+        }
+
+        requestTimeout = setTimeout(() => {
+          processRequests();
+        }, 3000); // Set the timeout to 2 seconds (or any other desired duration)
       }
     });
   });
-
-  function requestElevator(
-    callLocation,
-    callDirection,
-    callDestination,
-    button,
-    colorChanger
-  ) {
-    fetch("/request_elevator", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        call_location: parseInt(callLocation),
-        call_direction: callDirection,
-        call_destination: parseInt(callDestination),
-      }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        // stopBlinking(colorChanger, button);
-        console.log("Elevator selected:", data);
-        if (data.error) {
-          alert(`Error: ${data.error}`);
-        } else {
-          console.log(
-            `Elevator ${data.elevator_name} has reached floor ${data.current_location}`
-          );
-
-          animateElevator(data, button, colorChanger);
-        }
-      })
-      .catch((error) => console.error("Error:", error));
-  }
 });
 
+function processRequests() {
+  if (requests.length > 0) {
+    requestElevator(requests);
+    requests = []; // Clear the requests after processing
+  }
+}
+
+function requestElevator(requests) {
+  fetch("/request_elevator", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(requests),
+  })
+    .then((response) => response.json())
+    .then((data) => {
+      console.log("Elevator selected:", data);
+      if (data.error) {
+        alert(`Error: ${data.error}`);
+      } else {
+        // Function to handle SSE updates
+        async function handleSSEUpdates() {
+          const eventSource = new EventSource("/stream");
+          eventSource.onmessage = async function (event) {
+            const data = JSON.parse(event.data);
+            console.log("Elevator update received:", data);
+
+            // Animation is doing sequentially
+
+            for (const item of data) {
+              if (active_button[item.call_location]) {
+                stopBlinking(
+                  active_button[item.call_location][0],
+                  active_button[item.call_location][1]
+                );
+              }
+              await animateElevator(item);
+            }
+          };
+        }
+        handleSSEUpdates();
+      }
+    })
+    .catch((error) => console.error("Error:", error));
+}
 // function to change color of the label after pressing the up or down button
+
+async function animateElevator(data) {
+  const elevator = document.querySelector(
+    `.elevator[data-floor="${data.elevator_name}"]`
+  );
+
+  if (!elevator) {
+    console.error("Elevator not found");
+    return;
+  }
+
+  removeElevatorStatus(data.elevator_name);
+
+  const intial_location = elevatorStatus[data.elevator_name][0];
+
+  // Move to the call location
+  if (intial_location <= data.call_location) {
+    for (let i = intial_location; i <= data.call_location; i++) {
+      const elevatorCar = elevator.querySelector(
+        `.elevator_car[data-floor="${i}"]`
+      );
+
+      if (elevatorCar) {
+        elevatorCar.classList.add("moving");
+        await sleep(200); // Sleep for 500 milliseconds for the animation effect
+        elevatorCar.classList.remove("moving");
+      }
+      if (i === data.call_location) {
+        elevatorCar.classList.add("stopped");
+        // alert(
+        //   `Elevator ${data.elevator_name} is reached to call location ${data.call_location}`
+        // );
+        await sleep(2000);
+        elevatorCar.classList.remove("stopped");
+      }
+    }
+  } else {
+    for (let i = intial_location; i >= data.call_location; i--) {
+      const elevatorCar = elevator.querySelector(
+        `.elevator_car[data-floor="${i}"]`
+      );
+      if (elevatorCar) {
+        elevatorCar.classList.add("moving");
+        await sleep(200); // Sleep for 500 milliseconds for the animation effect
+        elevatorCar.classList.remove("moving");
+      }
+      if (i === data.call_location) {
+        elevatorCar.classList.add("stopped");
+        // alert(
+        //   `Elevator ${data.elevator_name} is reached to call location ${data.call_location}`
+        // );
+        await sleep(2000);
+        elevatorCar.classList.remove("stopped");
+      }
+    }
+  }
+
+  // Move to the Destination
+  if (data.call_location < data.current_location) {
+    for (let i = data.call_location; i <= data.current_location; i++) {
+      const elevatorCar = elevator.querySelector(
+        `.elevator_car[data-floor="${i}"]`
+      );
+
+      if (elevatorCar) {
+        elevatorCar.classList.add("moving");
+        await sleep(200); // Sleep for 500 milliseconds for the animation effect
+        elevatorCar.classList.remove("moving");
+      }
+      if (i === data.current_location) {
+        elevatorCar.classList.add("stopped");
+        // alert(
+        //   `Elevator ${data.elevator_name} has reached to destination ${data.current_location}`
+        // );
+
+        await sleep(2000);
+        elevatorCar.classList.remove("stopped");
+      }
+    }
+  } else {
+    for (let i = data.call_location; i >= data.current_location; i--) {
+      const elevatorCar = elevator.querySelector(
+        `.elevator_car[data-floor="${i}"]`
+      );
+      if (elevatorCar) {
+        elevatorCar.classList.add("moving");
+        await sleep(200); // Sleep for 500 milliseconds for the animation effect
+        elevatorCar.classList.remove("moving");
+      }
+      if (i === data.current_location) {
+        elevatorCar.classList.add("stopped");
+        // alert(
+        //   `Elevator ${data.elevator_name} has reached to destination ${data.current_location}`
+        // );
+
+        await sleep(2000);
+        elevatorCar.classList.remove("stopped");
+      }
+    }
+  }
+
+  elevatorStatus[data.elevator_name] = [
+    data.current_location,
+    data.current_status,
+  ];
+  setElvatorStatus(data.elevator_name);
+}
+
 function changeLableColor(button) {
   button.parentElement.querySelector(".label").style.backgroundColor = "red";
   button.parentElement.querySelector(".label").style.color = "white";
@@ -184,113 +318,4 @@ function removeElevatorStatus(name) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-async function animateElevator(data, button, colorChanger) {
-  const elevator = document.querySelector(
-    `.elevator[data-floor="${data.elevator_name}"]`
-  );
-
-  if (!elevator) {
-    console.error("Elevator not found");
-    return;
-  }
-
-  removeElevatorStatus(data.elevator_name);
-
-  const intial_location = elevatorStatus[data.elevator_name][0];
-
-  // Move to the call location
-  if (intial_location <= data.call_location) {
-    for (let i = intial_location; i <= data.call_location; i++) {
-      const elevatorCar = elevator.querySelector(
-        `.elevator_car[data-floor="${i}"]`
-      );
-
-      if (elevatorCar) {
-        elevatorCar.classList.add("moving");
-        await sleep(500); // Sleep for 500 milliseconds for the animation effect
-        elevatorCar.classList.remove("moving");
-      }
-      if (i === data.call_location) {
-        elevatorCar.classList.add("stopped");
-        // alert(
-        //   `Elevator ${data.elevator_name} is reached to call location ${data.call_location}`
-        // );
-        await sleep(2000);
-        elevatorCar.classList.remove("stopped");
-      }
-    }
-  } else {
-    for (let i = intial_location; i >= data.call_location; i--) {
-      const elevatorCar = elevator.querySelector(
-        `.elevator_car[data-floor="${i}"]`
-      );
-      if (elevatorCar) {
-        elevatorCar.classList.add("moving");
-        await sleep(500); // Sleep for 500 milliseconds for the animation effect
-        elevatorCar.classList.remove("moving");
-      }
-      if (i === data.call_location) {
-        elevatorCar.classList.add("stopped");
-        // alert(
-        //   `Elevator ${data.elevator_name} is reached to call location ${data.call_location}`
-        // );
-        await sleep(2000);
-        elevatorCar.classList.remove("stopped");
-      }
-    }
-  }
-
-  stopBlinking(colorChanger, button);
-
-  // Move to the Destination
-  if (data.call_location < data.current_location) {
-    for (let i = data.call_location; i <= data.current_location; i++) {
-      const elevatorCar = elevator.querySelector(
-        `.elevator_car[data-floor="${i}"]`
-      );
-
-      if (elevatorCar) {
-        elevatorCar.classList.add("moving");
-        await sleep(500); // Sleep for 500 milliseconds for the animation effect
-        elevatorCar.classList.remove("moving");
-      }
-      if (i === data.current_location) {
-        elevatorCar.classList.add("stopped");
-        // alert(
-        //   `Elevator ${data.elevator_name} has reached to destination ${data.current_location}`
-        // );
-
-        await sleep(2000);
-        elevatorCar.classList.remove("stopped");
-      }
-    }
-  } else {
-    for (let i = data.call_location; i >= data.current_location; i--) {
-      const elevatorCar = elevator.querySelector(
-        `.elevator_car[data-floor="${i}"]`
-      );
-      if (elevatorCar) {
-        elevatorCar.classList.add("moving");
-        await sleep(500); // Sleep for 500 milliseconds for the animation effect
-        elevatorCar.classList.remove("moving");
-      }
-      if (i === data.current_location) {
-        elevatorCar.classList.add("stopped");
-        // alert(
-        //   `Elevator ${data.elevator_name} has reached to destination ${data.current_location}`
-        // );
-
-        await sleep(2000);
-        elevatorCar.classList.remove("stopped");
-      }
-    }
-  }
-
-  elevatorStatus[data.elevator_name] = [
-    data.current_location,
-    data.current_status,
-  ];
-  setElvatorStatus(data.elevator_name);
 }
