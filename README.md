@@ -1,4 +1,4 @@
-# Elevator Simulation
+# Elevator Simulation 
 
 ## Project Overview
 
@@ -8,8 +8,9 @@ This project is an Elevator Simulation that uses HTML, CSS, JavaScript, and Flas
 
 - **Interactive User Interface**: Users can click buttons to request the elevator from any floor to any other floor.
 - **Real-time Elevator Movement**: The elevator moves between floors in real-time, displaying its current position.
-- **Flask Backend**: The backend is powered by Flask, handling the simulation logic and serving the web pages.
-- **Dynamic Floor Requests**: Users can request the elevator from multiple floors simultaneously, with the elevator queueing requests efficiently.
+- **Multiple Elevators**: The simulation can operate with multiple elevators.
+- **Intelligent Elevator Selection**: The simulation includes an algorithm that selects the nearest elevator to the call location.
+- **LOOK Algorithm**: The elevator movement algorithm is based on the LOOK algorithm, which optimizes the order of floor stops.
 
 ## Technologies Used
 
@@ -17,4 +18,7 @@ This project is an Elevator Simulation that uses HTML, CSS, JavaScript, and Flas
 - **CSS**: For styling the user interface.
 - **JavaScript**: For handling the interactive elements and real-time updates.
 - **Flask**: For the backend server and handling the simulation logic.
+
+
+
 
