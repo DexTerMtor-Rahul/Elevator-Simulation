@@ -1,4 +1,4 @@
-# Elevator Simulation README
+# Elevator Simulation
 
 ## Project Overview
 
