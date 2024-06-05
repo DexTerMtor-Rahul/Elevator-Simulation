@@ -1,5 +1,5 @@
 const numFloors = 10;
-const numElevators = 3;
+const numElevators = 2;
 var elevatorStatus = {};
 var requests = [];
 var requestTimeout;
