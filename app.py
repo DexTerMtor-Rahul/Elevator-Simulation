@@ -30,7 +30,7 @@ class Elevator:
         self.status = status  # 'moving' or 'idle'
         self.prev_location = None  # Previous floor location of the elevator
         self.requests = []  # List of floor requests
-        self.resposne = []  # List of responses
+        self.responses = []  # List of responses
 
     def add_request(self, call_location, call_direction, call_destination=None):
         if call_destination is not None:
@@ -75,17 +75,6 @@ class Elevator:
                             next_request[2],
                             "up" if next_request[2] > self.location else "down",
                         )
-                    # print(
-                    #     f"response: name: {self.name}, location: {self.location}, direction: {self.direction}, status: {self.status}, requests: {self.requests}"
-                    # )
-                    # response = {
-                    #     "elevator_name": self.name,
-                    #     "call_location": self.prev_location,
-                    #     "current_location": self.location,
-                    #     "current_status": self.status,
-                    #     "current_direction": self.direction,
-                    # }
-                    # self.resposne.append(response)
                     self.add_response()
 
                 # If no more requests in the current direction, change direction
@@ -115,17 +104,6 @@ class Elevator:
                             next_request[2],
                             "up" if next_request[2] > self.location else "down",
                         )
-                    # print(
-                    #     f"response: name: {self.name}, location: {self.location}, direction: {self.direction}, status: {self.status}, requests: {self.requests}"
-                    # )
-                    # response = {
-                    #     "elevator_name": self.name,
-                    #     "call_location": self.prev_location,
-                    #     "current_location": self.location,
-                    #     "current_status": self.status,
-                    #     "current_direction": self.direction,
-                    # }
-                    # self.resposne.append(response)
                     self.add_response()
 
                 # If no more requests in the current direction, change direction
@@ -139,20 +117,12 @@ class Elevator:
 
         self.status = "idle"
         self.direction = "idle"
-        if len(self.resposne) > 0:
-            self.resposne.pop()
-        self.add_response()
-        # response = {
-        #     "elevator_name": self.name,
-        #     "call_location": self.prev_location,
-        #     "current_location": self.location,
-        #     "current_status": self.status,
-        #     "current_direction": self.direction,
-        # }
-        # self.resposne.append(response)
-        last_response = self.resposne.copy()
-        response_queue.put(last_response)
-        self.resposne.clear()
+        if len(self.responses) > 0:
+            self.responses.pop()
+            self.add_response()
+            last_response = self.responses.copy()
+            response_queue.put(last_response)
+            self.responses.clear()  # Clear responses after adding to the response queue
 
     def add_response(self):
         response = {
@@ -160,9 +130,10 @@ class Elevator:
             "call_location": self.prev_location,
             "current_location": self.location,
             "current_status": self.status,
+            "current_direction": self.direction,
         }
 
-        self.resposne.append(response)
+        self.responses.append(response)
 
 
 def select_elevator(call_location, call_direction, elevators, num_floors):
@@ -202,7 +173,6 @@ elevators_thread = []
 
 
 def start_elevators():
-
     for instance in elevators:
         thread = threading.Thread(target=instance.move, args=(num_floors,))
         thread.start()
@@ -265,8 +235,10 @@ def request_elevator():
 def stream():
     def generate():
         sys.stdout.flush()
+        global response_queue
         while True:
             response = response_queue.get()
+            print(f"Response: {response}")
             response_queue.task_done()
             yield f"data: {json.dumps(response)}\n\n"
 
