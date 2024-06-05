@@ -1,5 +1,5 @@
 const numFloors = 10;
-const numElevators = 2;
+const numElevators = 3;
 var elevatorStatus = {};
 var requests = [];
 var requestTimeout;
@@ -109,20 +109,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
         requestTimeout = setTimeout(() => {
           processRequests();
-        }, 3000); // Set the timeout to 2 seconds (or any other desired duration)
+        }, 4000); // Set the timeout to 2 seconds (or any other desired duration)
       }
     });
   });
 });
 
-function processRequests() {
+async function processRequests() {
   if (requests.length > 0) {
-    requestElevator(requests);
+    await requestElevator(requests);
     requests = []; // Clear the requests after processing
   }
 }
 
-function requestElevator(requests) {
+async function requestElevator(requests) {
   fetch("/request_elevator", {
     method: "POST",
     headers: {
