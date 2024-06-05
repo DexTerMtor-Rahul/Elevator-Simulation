@@ -238,7 +238,7 @@ def stream():
         global response_queue
         while True:
             response = response_queue.get()
-            print(f"Response: {response}")
+            # print(f"Response: {response}")
             response_queue.task_done()
             yield f"data: {json.dumps(response)}\n\n"
 
