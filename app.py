@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, render_template, Response
 import threading
-import time
 import logging
 from queue import Queue
 import json
