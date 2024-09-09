@@ -106,7 +106,12 @@ function handleButtonClick(button) {
 
   // Process requests after a delay
   if (requestTimeout) clearTimeout(requestTimeout);
-  requestTimeout = setTimeout(() => processRequests(), 4000);
+  requestTimeout = new Promise((resolve) => {
+    setTimeout(() => {
+      processRequests();
+      resolve();
+    }, 6000);
+  });
 }
 
 // Validate destination input
